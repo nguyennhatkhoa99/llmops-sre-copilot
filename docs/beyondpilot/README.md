@@ -8,15 +8,16 @@ Kiến trúc BeyondPilot lấy từ sơ đồ `he-sinh-thai-ai.drawio` (3 trang)
 
 | File | Nội dung | Mở bằng |
 |---|---|---|
-| [core-flow.drawio](core-flow.drawio) | Flow phần core: một request đi qua AI service | draw.io hoặc app.diagrams.net |
-| [images/core-flow.png](images/core-flow.png) | Ảnh xuất từ `core-flow.drawio`, nhúng vào README này | Bất kỳ trình xem ảnh |
+| [core-flow.drawio](core-flow.drawio) | 2 trang: flow core (ví dụ hỏi đáp) và chuỗi slot của 8 module | draw.io hoặc app.diagrams.net |
+| [images/core-flow.png](images/core-flow.png), [images/module-slots.png](images/module-slots.png) | Ảnh xuất từ 2 trang trên, nhúng vào README này | Bất kỳ trình xem ảnh |
+| [scripts/](scripts/) | Script sinh file `.drawio` và xuất ảnh PNG | Python, Node |
 | [beyondpilot-flows.html](beyondpilot-flows.html) | Bảng map pilot → BeyondPilot và các luồng (sơ đồ Mermaid) | Trình duyệt |
 
 ## Flow phần core
 
 ![Flow phần core](images/core-flow.png)
 
-Ảnh xuất từ [core-flow.drawio](core-flow.drawio). Sửa sơ đồ trong file `.drawio` rồi xuất lại ảnh này.
+Ảnh xuất từ trang 1 của [core-flow.drawio](core-flow.drawio). Cách xuất lại ở mục [Cập nhật sơ đồ](#cập-nhật-sơ-đồ).
 
 ### Đường đi của một request
 
@@ -24,7 +25,18 @@ Kiến trúc BeyondPilot lấy từ sơ đồ `he-sinh-thai-ai.drawio` (3 trang)
 2. **Use case** (`answer_question`, `ingest_document`, `build_report`, `check_content`, `run_radar`, `forecast / optimise`, `advise_setpoint`) chọn module cần chạy.
 3. **safety**: Presidio che PII, LLM Guard kiểm prompt injection.
    - Không an toàn thì trả `AppError(code)` về lớp HTTP.
-4. **Module** chạy lần lượt từng slot (`Store`, `Retriever`, `Llm`, `Reader`…).
+4. **Module** chạy lần lượt từng slot. Với `answer_question` (module B):
+
+   | # | Slot | Bản cài mặc định (`type:`) | Gọi ra ngoài |
+   |---|---|---|---|
+   | 0 | Cache | Valkey, key = câu hỏi + workspace + quyền. Hit thì trả luôn | Valkey |
+   | 1 | Rewriter | `llm_rewrite`, tùy chọn, viết lại câu hỏi cho dễ tìm | Qwen3 qua LiteLLM |
+   | 2 | Embedder | `tei`, bge-m3, 1024 chiều | TEI qua LiteLLM |
+   | 3 | Store | `pgvector`, vector + full-text, lọc theo `workspace_id` và `doc_ids` | Postgres |
+   | 4 | Retriever | `hybrid`, gộp BM25 tiếng Việt + vector bằng fusion convex | — |
+   | 5 | Reranker | `tei`, bge-reranker-v2-m3, giữ top-k | TEI qua LiteLLM |
+   | 6 | Synthesizer | `llm`, Qwen3, câu nào cũng có trích dẫn | Qwen3 qua LiteLLM |
+
    - Mỗi lần gọi ra ngoài (LiteLLM, Postgres, S3) đi qua **resilience**: retry đúng 1 lớp, backoff, theo `Retry-After`.
    - Hết số lần thử thì trả `AppError(code)`.
    - **diagnostics** đo thời gian, đếm token, gửi trace sang Langfuse và OpenTelemetry. Không log nội dung câu hỏi hay câu trả lời.
@@ -32,6 +44,12 @@ Kiến trúc BeyondPilot lấy từ sơ đồ `he-sinh-thai-ai.drawio` (3 trang)
    - Sai thì gửi lại LLM kèm lỗi, tối đa 2 lần, sau đó dùng template cố định.
 6. **renderer** xuất HTML, PDF hoặc PPTX nếu use case cần.
 7. Trả DTO về Backend.
+
+### Chuỗi slot của 8 module
+
+![Chuỗi slot của 8 module](images/module-slots.png)
+
+Mỗi module là một chuỗi slot cố định; mỗi slot có contract riêng và chọn bản cài bằng `type:` trong config. Ô vàng là bước có người duyệt qua Review UI. Đổi công nghệ (ví dụ thay GLM-OCR bằng Azure Document Intelligence) là đổi `type:` của slot đó, không sửa code module.
 
 ### Ngoài đường request
 
@@ -139,6 +157,20 @@ Thứ tự đã chốt: phần AI trước, sau đó FE + BE, cuối cùng là h
 
 38. Chốt nơi lưu trace và log (Tempo/Loki hay chỗ khác)
 39. Helm chart cho k3s, giữ docker compose cho dev
+
+## Cập nhật sơ đồ
+
+File `core-flow.drawio` được sinh từ `scripts/gen_core_flow.py`. Sửa script rồi chạy lại 2 bước:
+
+```bash
+python3 docs/beyondpilot/scripts/gen_core_flow.py docs/beyondpilot/core-flow.drawio
+```
+
+```bash
+cd docs/beyondpilot/scripts && npm install --no-save mxgraph@4.2.2 playwright && node render_drawio.js ../core-flow.drawio ../images/core-flow.png 0 && node render_drawio.js ../core-flow.drawio ../images/module-slots.png 1
+```
+
+Tham số cuối là số trang (0 là trang 1). Sửa tay trong draw.io cũng được, nhưng lần chạy script sau sẽ ghi đè.
 
 ## Việc còn mở
 
