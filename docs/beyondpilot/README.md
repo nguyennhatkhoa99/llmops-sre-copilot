@@ -9,11 +9,14 @@ Kiến trúc BeyondPilot lấy từ sơ đồ `he-sinh-thai-ai.drawio` (3 trang)
 | File | Nội dung | Mở bằng |
 |---|---|---|
 | [core-flow.drawio](core-flow.drawio) | Flow phần core: một request đi qua AI service | draw.io hoặc app.diagrams.net |
+| [images/core-flow.png](images/core-flow.png) | Ảnh xuất từ `core-flow.drawio`, nhúng vào README này | Bất kỳ trình xem ảnh |
 | [beyondpilot-flows.html](beyondpilot-flows.html) | Bảng map pilot → BeyondPilot và các luồng (sơ đồ Mermaid) | Trình duyệt |
 
 ## Flow phần core
 
-Mở [core-flow.drawio](core-flow.drawio) để xem sơ đồ.
+![Flow phần core](images/core-flow.png)
+
+Ảnh xuất từ [core-flow.drawio](core-flow.drawio). Sửa sơ đồ trong file `.drawio` rồi xuất lại ảnh này.
 
 ### Đường đi của một request
 
