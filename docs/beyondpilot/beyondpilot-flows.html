@@ -114,6 +114,7 @@ html { scroll-behavior: smooth; }
       <li><a href="#ingest"><span class="k">2</span>Nạp tài liệu</a></li>
       <li><a href="#report"><span class="k">3</span>Bản tin định kỳ</a></li>
       <li><a href="#inside"><span class="k">4</span>Bên trong AI service</a></li>
+      <li><a href="#core"><span class="k">4b</span>Flow phần core</a></li>
       <li><a href="#safety"><span class="k">5</span>Safety</a></li>
       <li><a href="#model"><span class="k">6</span>Gọi model</a></li>
       <li><a href="#observe"><span class="k">7</span>Quan sát &amp; eval</a></li>
@@ -346,6 +347,90 @@ flowchart TB
   UC --> CORE
 </pre></div>
       <div class="note"><b>Việc tái cấu trúc chính:</b> pilot gom mọi thứ trong <code>RetrievalService</code>. Sang BeyondPilot cần tách mỗi bước thành một slot có contract (<code>Store</code>, <code>Retriever</code>, <code>Llm</code>…) và chọn bản cài bằng <code>type:</code> trong config. Ví dụ <code>MilvusRunbookStore</code> trở thành một bản cài của slot <code>Store</code>, đặt cạnh bản pgvector.</div>
+    </section>
+
+    <section id="core">
+      <div class="eyebrow">Luồng 4b · core/</div>
+      <h2>Flow phần core</h2>
+      <p>Vẽ theo thiết kế 10 khối lõi trong session BeyondPilot. Chưa đối chiếu với code trong các file zip. Quy tắc chung: core không import web framework, module chỉ nói chuyện với core qua contract.</p>
+
+      <h3 class="sub">1. Khởi động: nạp config và lắp slot</h3>
+      <div class="diagram"><pre class="mermaid">
+flowchart LR
+  T[config.yaml.template] -->|copy + sửa| Y[config.yaml]
+  ENV[Env / OpenBao<br/>secret] --> S
+  Y --> S["settings ♻ config.py"]
+  S -->|mỗi slot có type:| R[registry]
+  R -->|tên type = tên file| F[tìm class bản cài]
+  F --> K{class đúng<br/>Protocol trong contracts?}
+  K -- đúng --> I[khởi tạo slot<br/>Store, Retriever, Llm, Reader...]
+  K -- sai --> E[AppError CONFIG_INVALID<br/>dừng khởi động]
+  I --> M[module A–H nhận slot đã lắp]
+</pre></div>
+
+      <h3 class="sub">2. Một request đi qua core</h3>
+      <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+  autonumber
+  participant H as Lớp HTTP
+  participant UC as Use case
+  participant SF as safety
+  participant MD as Module (chuỗi slot)
+  participant RS as resilience
+  participant DG as diagnostics
+  participant LL as Slot Llm → LiteLLM
+  participant VD as validator
+  participant RD as renderer
+
+  H->>UC: DTO đã qua auth
+  UC->>SF: Presidio che PII, LLM Guard kiểm injection
+  SF-->>UC: input sạch hoặc AppError
+  UC->>MD: chạy chuỗi slot
+  loop mỗi slot
+    MD->>DG: Timer + log_scope (không log nội dung)
+    MD->>RS: gọi qua lớp retry duy nhất
+    RS->>LL: gọi model / store
+    LL-->>RS: kết quả hoặc 429/503
+    RS-->>MD: kết quả hoặc AppError
+    DG-->>DG: đếm token, thời gian
+  end
+  MD->>VD: câu trả lời + facts
+  VD-->>MD: đạt / sai (xem mục 3)
+  MD->>RD: nếu cần file: HTML, PDF, PPTX
+  RD-->>UC: kết quả
+  UC-->>H: DTO trả về
+  Note over DG: trace gửi về Langfuse + OpenTelemetry
+</pre></div>
+
+      <h3 class="sub">3. Validator và evidence DSL</h3>
+      <div class="diagram"><pre class="mermaid">
+flowchart TD
+  A[Câu trả lời từ writer / synthesizer] --> B[Tách các con số<br/>và evidence tham chiếu]
+  B --> C[Tính lại từng số từ facts<br/>bằng evidence DSL]
+  C --> D{Khớp hết?}
+  D -- có --> OK[Trả câu trả lời]
+  D -- không --> N{Đã sinh lại<br/>quá 2 lần?}
+  N -- chưa --> R[Gửi lại LLM kèm lỗi cụ thể] --> A
+  N -- rồi --> T[Dùng template cố định<br/>chỉ điền số từ facts]
+</pre></div>
+
+      <h3 class="sub">4. Lỗi và retry</h3>
+      <div class="diagram"><pre class="mermaid">
+flowchart LR
+  X[Gọi ra ngoài<br/>LiteLLM, Postgres, S3] --> Q{Lỗi?}
+  Q -- không --> OK[kết quả]
+  Q -- 429 / 503 / timeout --> RT[resilience: backoff<br/>theo Retry-After]
+  RT --> Q2{Hết số lần thử?}
+  Q2 -- chưa --> X
+  Q2 -- rồi --> AE
+  Q -- lỗi khác --> AE[raise AppError code<br/>tra CATALOGUE]
+  AE --> EH[Error handler lớp HTTP<br/>trả code, message]
+</pre></div>
+      <div class="meta">
+        <div><h4>10 khối core</h4><ul><li>contracts, registry/slot, settings, errors</li><li>resilience, diagnostics, safety</li><li>validator + evidence DSL, renderer, eval harness</li></ul></div>
+        <div><h4>Lấy từ pilot</h4><ul><li><code>config.py</code> → settings</li><li><code>guardrails/</code> → safety (interface <code>GuardrailResult</code>)</li><li><code>observability/</code>, <code>utils/logger.py</code> → diagnostics</li></ul></div>
+        <div><h4>Quy tắc</h4><ul><li>Retry chỉ ở một lớp, không lồng nhau</li><li>Chỉ raise <code>AppError(code)</code>, không raise lỗi thô</li><li>Eval harness (promptfoo + case vàng) chạy trong CI, không nằm trên đường request</li></ul></div>
+      </div>
     </section>
 
     <section id="safety">
