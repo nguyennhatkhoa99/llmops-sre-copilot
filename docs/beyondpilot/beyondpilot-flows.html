@@ -1,0 +1,429 @@
+<title>BeyondPilot Flows</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sticky flow index on the left, mapping table first, then one section per BeyondPilot flow; single column on phones */
+:root {
+  --bg: #f5f7f9;
+  --surface: #ffffff;
+  --fg: #16202b;
+  --muted: #5a6877;
+  --line: #d9e0e7;
+  --accent: #0f6e8c;
+  --accent-soft: #e2f1f6;
+  --keep: #2f7a3e;
+  --keep-soft: #e3f3e6;
+  --swap: #7a4fb0;
+  --swap-soft: #efe7f9;
+  --warn: #9a5b00;
+  --warn-soft: #fff3df;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f151b; --surface: #161e26; --fg: #e3e9ef; --muted: #96a4b2; --line: #2a3541;
+    --accent: #5cc0dd; --accent-soft: #15303b; --keep: #7fd08e; --keep-soft: #16301c;
+    --swap: #c4a3f0; --swap-soft: #2a2140; --warn: #f0b860; --warn-soft: #2e2414;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f151b; --surface: #161e26; --fg: #e3e9ef; --muted: #96a4b2; --line: #2a3541;
+  --accent: #5cc0dd; --accent-soft: #15303b; --keep: #7fd08e; --keep-soft: #16301c;
+  --swap: #c4a3f0; --swap-soft: #2a2140; --warn: #f0b860; --warn-soft: #2e2414;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body);
+  font-size: 15px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 64px;
+}
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 40px; }
+header.top { max-width: 1240px; margin: 0 auto 32px; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+h1 { font-size: 34px; line-height: 1.15; margin: 6px 0 10px; text-wrap: balance; font-weight: 700; }
+.lede { color: var(--muted); max-width: 72ch; margin: 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 16px; font-size: 13px; color: var(--muted); align-items: center; }
+nav { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); align-self: start; }
+nav ol { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
+nav a { display: block; padding: 6px 10px; border-radius: 4px; color: var(--muted); text-decoration: none; font-size: 14px; border-left: 2px solid transparent; }
+nav a:hover, nav a:focus-visible { color: var(--fg); background: var(--accent-soft); border-left-color: var(--accent); outline: none; }
+nav .k { font-family: var(--font-mono); font-size: 11px; color: var(--accent); margin-right: 6px; }
+main { display: flex; flex-direction: column; gap: 56px; min-width: 0; }
+section { min-width: 0; scroll-margin-top: 20px; }
+h2 { font-size: 22px; margin: 4px 0 8px; text-wrap: balance; }
+h3.sub { font-size: 15px; margin: 22px 0 8px; }
+section > p { max-width: 74ch; margin: 0 0 14px; }
+.diagram { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 20px; overflow-x: auto; }
+.diagram pre.mermaid { margin: 0; background: transparent; font-family: var(--font-body); }
+.meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 14px; }
+.meta h4 { font-size: 12px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: 0 0 6px; font-weight: 500; }
+.meta ul { margin: 0; padding-left: 18px; font-size: 14px; }
+.meta li { margin-bottom: 3px; }
+code { font-family: var(--font-mono); font-size: 12.5px; background: var(--accent-soft); padding: 1px 5px; border-radius: 3px; overflow-wrap: anywhere; }
+.note { margin-top: 14px; padding: 12px 14px; background: var(--warn-soft); border-left: 3px solid var(--warn); border-radius: 0 4px 4px 0; font-size: 14px; max-width: 84ch; }
+.note b { color: var(--warn); }
+.tbl { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 760px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 500; background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td.grp { font-family: var(--font-mono); font-size: 12px; color: var(--accent); background: var(--accent-soft); text-transform: uppercase; letter-spacing: .06em; padding-block: 6px; }
+.st { font-family: var(--font-mono); font-size: 11px; padding: 1px 8px; border-radius: 10px; white-space: nowrap; display: inline-block; }
+.st.keep { background: var(--keep-soft); color: var(--keep); }
+.st.swap { background: var(--swap-soft); color: var(--swap); }
+.st.new { background: var(--warn-soft); color: var(--warn); }
+.st.drop { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+.counts { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 14px; }
+.counts div { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 8px 14px; font-size: 13px; color: var(--muted); }
+.counts b { font-size: 20px; color: var(--fg); margin-right: 6px; font-variant-numeric: tabular-nums; }
+@media (max-width: 820px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  nav { position: static; }
+  nav ol { flex-direction: row; flex-wrap: wrap; }
+  nav a { border-left: 0; border: 1px solid var(--line); font-size: 13px; }
+  h1 { font-size: 27px; }
+}
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+
+<header class="top">
+  <div class="eyebrow">BeyondPilot (Nestlé) · map từ repo pilot llmops-sre-copilot</div>
+  <h1>Luồng BeyondPilot và phần tương ứng trong pilot</h1>
+  <p class="lede">Kiến trúc BeyondPilot lấy từ session "Beyond pilot tech stack" (sơ đồ <code>he-sinh-thai-ai.drawio</code>, 3 trang). Mỗi thành phần của pilot được map sang chỗ của nó trong BeyondPilot. Các luồng bên dưới vẽ bằng stack BeyondPilot và ghi rõ đoạn code pilot nào dùng lại được.</p>
+  <div class="legend">
+    <span><span class="st keep">giữ</span> dùng lại gần như nguyên</span>
+    <span><span class="st swap">thay</span> giữ khung, đổi công nghệ</span>
+    <span><span class="st new">viết mới</span> pilot chưa có</span>
+    <span><span class="st drop">bỏ</span> không cần trong BeyondPilot</span>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav aria-label="Danh sách mục">
+    <ol>
+      <li><a href="#map"><span class="k">≡</span>Bảng map thành phần</a></li>
+      <li><a href="#overview"><span class="k">0</span>Tổng thể</a></li>
+      <li><a href="#qa"><span class="k">1</span>Hỏi đáp có trích dẫn</a></li>
+      <li><a href="#ingest"><span class="k">2</span>Nạp tài liệu</a></li>
+      <li><a href="#report"><span class="k">3</span>Bản tin định kỳ</a></li>
+      <li><a href="#inside"><span class="k">4</span>Bên trong AI service</a></li>
+      <li><a href="#safety"><span class="k">5</span>Safety</a></li>
+      <li><a href="#model"><span class="k">6</span>Gọi model</a></li>
+      <li><a href="#observe"><span class="k">7</span>Quan sát &amp; eval</a></li>
+      <li><a href="#gaps"><span class="k">∗</span>Phần pilot chưa có</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <section id="map">
+      <div class="eyebrow">Đối chiếu</div>
+      <h2>Bảng map pilot → BeyondPilot</h2>
+      <p>Pilot làm được phần lõi của module B (RAG) và khung API. Phần lớn cần đổi công nghệ để theo hướng "open source trước" của BeyondPilot và chạy trong môi trường Nestlé.</p>
+      <div class="counts">
+        <div><b>5</b>giữ</div><div><b>13</b>thay</div><div><b>7</b>viết mới</div><div><b>2</b>bỏ</div>
+      </div>
+      <div class="tbl"><table>
+        <thead><tr><th>Pilot</th><th>File pilot</th><th>BeyondPilot</th><th>Việc</th><th>Ghi chú</th></tr></thead>
+        <tbody>
+          <tr><td class="grp" colspan="5">Cổng vào &amp; API</td></tr>
+          <tr><td>FastAPI app, router <code>/v1/search</code>, <code>/v1/answer</code></td><td><code>app.py</code>, <code>routers/</code></td><td>AI service: Router <code>/api/v1</code> (chat, documents, reports, checks), <code>/internal/v1</code> (health, ready)</td><td><span class="st keep">giữ</span></td><td>Giữ FastAPI. Đổi prefix, tách DTO theo version.</td></tr>
+          <tr><td>API key <code>x-api-key</code></td><td><code>middleware/auth.py</code></td><td>Auth dependency <code>X-API-Key</code> giữa Backend ↔ AI service</td><td><span class="st keep">giữ</span></td><td>Đổi <code>in</code> sang so khớp hằng thời gian (<code>hmac.compare_digest</code>).</td></tr>
+          <tr><td>Không có (người dùng gọi thẳng API)</td><td>—</td><td>Traefik + Keycloak (OIDC) + Entra ID, Backend nghiệp vụ (quyền, workspace, audit)</td><td><span class="st new">viết mới</span></td><td>Người dùng cuối không chạm AI service nữa.</td></tr>
+          <tr><td>Rate limit (README có, code không)</td><td>—</td><td>Valkey: rate limit</td><td><span class="st new">viết mới</span></td><td></td></tr>
+          <tr><td><code>HTTPException(502)</code> rải rác</td><td><code>llm_router.py</code></td><td><code>core/errors.py</code>: <code>ErrorCode</code> + <code>AppError(code)</code> → <code>{code, message}</code></td><td><span class="st swap">thay</span></td><td></td></tr>
+          <tr><td>Pydantic Settings, env <code>SRE_*</code></td><td><code>config.py</code></td><td><code>core/settings</code>: <code>config.yaml.template</code> + secret từ env/OpenBao</td><td><span class="st swap">thay</span></td><td>Thêm khoá <code>type:</code> để chọn bản cài cho từng slot.</td></tr>
+          <tr><td class="grp" colspan="5">RAG (module B)</td></tr>
+          <tr><td><code>RetrievalService.answer()</code></td><td><code>services/retrieval.py</code></td><td>Use case <code>answer_question</code> → module B</td><td><span class="st swap">thay</span></td><td>Tách thành chuỗi slot: loader → chunker → embedder → store → retriever → reranker → synthesizer.</td></tr>
+          <tr><td>Milvus, collection <code>runbooks</code></td><td><code>milvus_client.py</code>, <code>milvus_schema.py</code></td><td>PostgreSQL + pgvector + full-text, lọc theo workspace</td><td><span class="st swap">thay</span></td><td>Bỏ etcd + MinIO của Milvus.</td></tr>
+          <tr><td>Tìm vector top-3</td><td><code>retrieval.py</code></td><td>Retriever: BM25 tiếng Việt + vector, fusion convex</td><td><span class="st swap">thay</span></td><td></td></tr>
+          <tr><td>Không có</td><td>—</td><td>Reranker: bge-reranker-v2-m3 (TEI)</td><td><span class="st new">viết mới</span></td><td></td></tr>
+          <tr><td>Embedding OpenAI → Ollama → hash, 1536 chiều</td><td><code>services/embeddings.py</code></td><td>Embedder: bge-m3 qua TEI</td><td><span class="st swap">thay</span></td><td>bge-m3 ra 1024 chiều. Bỏ fallback hash.</td></tr>
+          <tr><td>Prompt "SRE copilot" + context</td><td><code>retrieval.py</code></td><td>Synthesizer: Qwen3, mỗi câu có trích dẫn + validator số liệu</td><td><span class="st swap">thay</span></td><td></td></tr>
+          <tr><td>Viết lại câu hỏi (tuỳ chọn)</td><td><code>_rewrite_query()</code></td><td>Bước tiền xử lý trong retriever</td><td><span class="st keep">giữ</span></td><td></td></tr>
+          <tr><td>Redis cache, key <code>sha1(query)</code></td><td><code>services/redis_cache.py</code></td><td>Valkey cache</td><td><span class="st keep">giữ</span></td><td>Valkey dùng được client Redis. Key phải thêm workspace và bộ quyền, nếu không người này nhận cache của người khác.</td></tr>
+          <tr><td class="grp" colspan="5">Nạp dữ liệu</td></tr>
+          <tr><td>Pipeline load → chunk → embed → upsert</td><td><code>ingestion/pipeline.py</code></td><td>Ingest worker (module D → B), job qua Procrastinate</td><td><span class="st swap">thay</span></td><td>Giữ khung 4 bước, đổi nguồn và cách chạy.</td></tr>
+          <tr><td>Nguồn Loki / Prometheus / Tempo</td><td><code>ingestion/sources.py</code></td><td>File gốc từ SeaweedFS; số liệu từ Snowflake, SAP, SharePoint (connector chỉ đọc)</td><td><span class="st drop">bỏ</span></td><td>BeyondPilot không đọc log hệ thống làm tri thức.</td></tr>
+          <tr><td><code>chunk_text</code> 500 ký tự</td><td><code>pipeline.py</code></td><td>Loader Docling/openpyxl, chunker theo heading, FAQ theo dòng; OCR bằng GLM-OCR</td><td><span class="st swap">thay</span></td><td></td></tr>
+          <tr><td>Airflow (DAG chưa có)</td><td><code>infras/airflow</code></td><td>Airflow: lịch chạy bản tin, radar, ML jobs</td><td><span class="st keep">giữ</span></td><td>Vai trò khác: lịch chạy, không phải nạp log.</td></tr>
+          <tr><td class="grp" colspan="5">Model &amp; safety</td></tr>
+          <tr><td><code>LLMRouter</code>: OpenAI trước, Ollama dự phòng</td><td><code>services/llm_router.py</code></td><td>Slot <code>Llm</code> gọi LiteLLM (API kiểu OpenAI) → vLLM Qwen3 trước, bên thứ ba chỉ khi eval không đạt</td><td><span class="st swap">thay</span></td><td>Đảo thứ tự ưu tiên. Logic fallback chuyển vào LiteLLM.</td></tr>
+          <tr><td>Heuristic PII + injection, NeMo (thiếu config)</td><td><code>guardrails/</code></td><td><code>core/safety</code>: Presidio (PII) + LLM Guard (prompt injection)</td><td><span class="st swap">thay</span></td><td></td></tr>
+          <tr><td>Không có retry</td><td>—</td><td><code>core/resilience</code>: retry 1 lớp, backoff, theo Retry-After</td><td><span class="st new">viết mới</span></td><td></td></tr>
+          <tr><td class="grp" colspan="5">Quan sát, eval, deploy</td></tr>
+          <tr><td>OTel → Tempo, Langfuse, Prometheus, Grafana, Loki</td><td><code>observability/</code>, <code>infras/configs</code></td><td>OpenTelemetry, Prometheus, Grafana, Langfuse</td><td><span class="st swap">thay</span></td><td>Giữ code instrument. Sơ đồ BeyondPilot không ghi Tempo/Loki: cần chốt nơi lưu trace và log.</td></tr>
+          <tr><td>Không có</td><td>—</td><td>promptfoo + bộ case vàng chạy trong CI</td><td><span class="st new">viết mới</span></td><td></td></tr>
+          <tr><td>docker compose</td><td><code>docker-compose.yml</code>, <code>infras/</code></td><td>k3s + Helm trong Azure VNet hoặc on-prem</td><td><span class="st swap">thay</span></td><td>Compose vẫn hữu ích cho dev.</td></tr>
+          <tr><td>Attu (UI quản lý Milvus)</td><td><code>infras/docker-compose.yml</code></td><td>—</td><td><span class="st drop">bỏ</span></td><td>Không còn Milvus.</td></tr>
+          <tr><td>Không có</td><td>—</td><td>Review UI, Outbox, Channel adapters (Teams, Zalo, email)</td><td><span class="st new">viết mới</span></td><td></td></tr>
+          <tr><td>Không có</td><td>—</td><td>Module A, C, D, E, F, G, H và renderer HTML/PDF/PPTX</td><td><span class="st new">viết mới</span></td><td>Xem mục cuối.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="overview">
+      <div class="eyebrow">Luồng 0</div>
+      <h2>Tổng thể BeyondPilot</h2>
+      <p>Mọi thứ chạy trong môi trường Nestlé (cụm k3s). Ô ghi <b>♻</b> là chỗ dùng lại code pilot.</p>
+      <div class="diagram"><pre class="mermaid">
+flowchart LR
+  U([Nhân viên / Người duyệt]) --> CH[Kênh<br/>Web React · Teams · Zalo · Email]
+  CH -->|HTTPS| TRF[Traefik]
+  CH -->|SSO| KC[Keycloak] -->|OIDC| ENT[Entra ID]
+  TRF -->|REST + JWT| BE[Backend nghiệp vụ<br/>quyền, workspace, audit]
+  TRF --> RV[Review UI]
+  TRF -->|webhook| ADP[Channel adapters]
+  BE -->|/api/v1 + API key| AI["AI service ♻<br/>FastAPI, lõi + module A–H"]
+
+  subgraph MS["Model serving · GPU"]
+    LL[LiteLLM] --> VL[vLLM<br/>Qwen3 · Qwen-VL · GLM-OCR]
+    LL --> TEI[TEI<br/>bge-m3 · bge-reranker]
+  end
+  AI -->|OpenAI API| LL
+  LL -.->|chỉ khi eval không đạt| TP[[OpenAI · Azure OpenAI · Claude]]
+
+  subgraph WK["Worker"]
+    AF["Airflow ♻"]
+    PQ[Procrastinate]
+    ING["Ingest ♻"]
+    RAD[Radar crawler]
+    ML[ML jobs]
+    OT[OT reader]
+  end
+  WK --> LL
+
+  subgraph ST["Lưu trữ"]
+    PG[(PostgreSQL + pgvector)]
+    SW[(SeaweedFS S3)]
+    VK[("Valkey ♻")]
+    MLF[(MLflow)]
+    DDB[(DuckDB + dbt)]
+  end
+  AI --> ST
+  WK --> ST
+  WK -->|chỉ đọc| NS[Snowflake · SAP · SharePoint · MES]
+  WK -->|nguồn được phép| NET[Internet]
+</pre></div>
+    </section>
+
+    <section id="qa">
+      <div class="eyebrow">Luồng 1 · bước 1–5 · module B</div>
+      <h2>Hỏi đáp có trích dẫn</h2>
+      <p>Tương ứng luồng <code>/v1/answer</code> của pilot. Khác ở chỗ có lớp quyền người dùng, tìm kiếm lai, reranker và validator trước khi trả lời.</p>
+      <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+  autonumber
+  actor U as Người dùng
+  participant GW as Traefik + Keycloak
+  participant BE as Backend nghiệp vụ
+  participant AI as AI service
+  participant VK as Valkey
+  participant PG as Postgres + pgvector
+  participant LL as LiteLLM
+  participant M as vLLM / TEI
+
+  U->>GW: câu hỏi (Web, Teams, Zalo)
+  GW->>BE: kiểm JWT, SSO Entra ID
+  BE->>AI: POST /api/v1/chat + X-API-Key<br/>câu hỏi + danh sách tài liệu được xem
+  Note over AI: ♻ auth.py · safety: Presidio + LLM Guard
+  AI->>VK: tra cache (key có workspace + quyền) ♻
+  alt cache miss
+    AI->>LL: embed câu hỏi
+    LL->>M: bge-m3 (TEI)
+    AI->>PG: BM25 tiếng Việt + vector, lọc theo quyền
+    AI->>LL: rerank
+    LL->>M: bge-reranker-v2-m3
+    AI->>LL: sinh câu trả lời có trích dẫn
+    LL->>M: Qwen3 (vLLM)
+    AI->>AI: validator: số liệu phải khớp nguồn
+    AI->>VK: lưu cache
+  end
+  AI-->>BE: answer + citations
+  BE-->>U: câu trả lời có trích dẫn
+</pre></div>
+      <div class="meta">
+        <div><h4>Lấy từ pilot</h4><ul><li><code>RetrievalService.search_runbooks()</code>: thứ tự guardrails → cache → search</li><li><code>RedisCache</code> (đổi key)</li><li>Span OTel <code>guardrails.validate</code> / <code>milvus.search</code> / <code>llm.generate</code></li></ul></div>
+        <div><h4>Phải thêm</h4><ul><li>Lọc theo quyền và workspace ở store</li><li>Hybrid search, reranker</li><li>Trích dẫn từng câu, validator</li></ul></div>
+      </div>
+    </section>
+
+    <section id="ingest">
+      <div class="eyebrow">Luồng 2 · bước 6–9 · module D → B</div>
+      <h2>Nạp tài liệu (bất đồng bộ)</h2>
+      <p>Tương ứng <code>ingestion/pipeline.py</code> của pilot. Pilot chạy theo lô từ Loki/Prom/Tempo; BeyondPilot chạy theo từng file người dùng tải lên, qua hàng đợi, và báo tiến độ về backend.</p>
+      <div class="diagram"><pre class="mermaid">
+flowchart LR
+  BE[Backend nghiệp vụ] -->|6 · lưu file gốc| SW[(SeaweedFS)]
+  BE -->|7 · xếp job| Q[[Procrastinate<br/>hàng đợi trên Postgres]]
+  Q -->|8 · lấy job| W["Ingest worker ♻"]
+  subgraph D["Module D: đọc tài liệu"]
+    P1[Preparer<br/>pypdfium2] --> P2[Signals] --> P3[Reader<br/>GLM-OCR · Docling] --> P4[Checker<br/>đối soát chéo]
+  end
+  subgraph B["Module B: đưa vào kho"]
+    B1["Chunker ♻<br/>theo heading"] --> B2["Embedder ♻<br/>bge-m3"] --> B3[("Store ♻<br/>pgvector")]
+  end
+  W --> D --> B
+  P4 -.->|ô cần xem lại| RV[Review UI]
+  W -.->|9 · webhook tiến độ<br/>seq + event_id| BE
+</pre></div>
+      <div class="meta">
+        <div><h4>Lấy từ pilot</h4><ul><li>Khung <code>ingest_observability()</code>: fetch → chunk → <code>embed_batch</code> → <code>upsert_documents</code></li><li><code>asyncio.gather</code> khi đọc nhiều nguồn</li></ul></div>
+        <div><h4>Phải thêm</h4><ul><li>Hàng đợi, retry, idempotent theo file</li><li>OCR, đọc form, schema theo loại chứng từ</li><li>Progress hook về backend</li></ul></div>
+      </div>
+    </section>
+
+    <section id="report">
+      <div class="eyebrow">Luồng 3 · bước 10–15 · module A + H</div>
+      <h2>Bản tin định kỳ có người duyệt</h2>
+      <p>Pilot không có luồng này. Chỉ phần Airflow trong <code>infras/</code> là dùng lại được.</p>
+      <div class="diagram"><pre class="mermaid">
+flowchart LR
+  AF["Airflow ♻"] -->|10 · theo lịch| RW[Worker bản tin]
+  NS[Snowflake · SAP · Power BI] -->|11a · chỉ đọc| DD[DuckDB + dbt<br/>tính facts]
+  DD -->|11b| RW
+  NET[Internet<br/>site đối thủ, cổng luật] -->|11c · crawl có ngân sách| RW
+  RW --> A[Module A<br/>facts → writer Qwen3 → validator → renderer]
+  RW --> H[Module H<br/>fetch → extract → gộp trùng → chấm điểm]
+  A & H -->|12 · bản nháp + evidence| RV[Review UI]
+  RV -->|13 · người duyệt bấm duyệt| OB[(Outbox)]
+  OB -->|14| CH[Email · Teams · Zalo]
+  CH -.->|15| U([Người nhận])
+</pre></div>
+    </section>
+
+    <section id="inside">
+      <div class="eyebrow">Luồng 4</div>
+      <h2>Bên trong AI service: pilot nằm ở đâu</h2>
+      <p>AI service chia 4 lớp. Code pilot rơi vào lớp HTTP, use case <code>answer_question</code>, module B và một phần lõi.</p>
+      <div class="diagram"><pre class="mermaid">
+flowchart TB
+  BE[Backend] -->|/api/v1| HTTP
+  subgraph HTTP["Lớp HTTP"]
+    R1["Router /api/v1 ♻ routers/retrieval.py"]
+    R2["Auth X-API-Key ♻ middleware/auth.py"]
+    R3[Schemas DTO theo version]
+    R4[Error handler]
+    R5[Progress hook]
+  end
+  subgraph UC["Use case"]
+    U1["answer_question ♻ RetrievalService.answer"]
+    U2["ingest_document ♻ ingestion/pipeline"]
+    U3[build_report]
+    U4[check_content]
+    U5[run_radar]
+    U6[forecast / optimise]
+    U7[advise_setpoint]
+  end
+  subgraph MOD["Module"]
+    MB["B · RAG ♻"]
+    MD[D · đọc tài liệu]
+    MA[A · facts + narrative]
+    MC[C · check Xanh/Vàng/Đỏ]
+    ME[E · thị giác]
+    MF[F · ML, tối ưu]
+    MG[G · điều khiển OT]
+    MH[H · radar]
+  end
+  subgraph CORE["Lõi dùng chung"]
+    C1["settings ♻ config.py"]
+    C2["safety ♻ guardrails/"]
+    C3["diagnostics ♻ observability/, utils/logger"]
+    C4[contracts + registry slot]
+    C5[errors]
+    C6[resilience]
+    C7[validator + evidence DSL]
+    C8[renderer]
+    C9[eval harness]
+  end
+  HTTP --> UC --> MOD --> CORE
+  UC --> CORE
+</pre></div>
+      <div class="note"><b>Việc tái cấu trúc chính:</b> pilot gom mọi thứ trong <code>RetrievalService</code>. Sang BeyondPilot cần tách mỗi bước thành một slot có contract (<code>Store</code>, <code>Retriever</code>, <code>Llm</code>…) và chọn bản cài bằng <code>type:</code> trong config. Ví dụ <code>MilvusRunbookStore</code> trở thành một bản cài của slot <code>Store</code>, đặt cạnh bản pgvector.</div>
+    </section>
+
+    <section id="safety">
+      <div class="eyebrow">Luồng 5</div>
+      <h2>Safety: từ guardrails của pilot sang Presidio + LLM Guard</h2>
+      <div class="diagram"><pre class="mermaid">
+flowchart LR
+  subgraph PILOT["Pilot · guardrails/engine.py"]
+    direction TB
+    a1[regex PII + mask] --> a2[regex injection] --> a3{NeMo có config?}
+    a3 -- không --> a4[kết quả heuristic]
+  end
+  subgraph BP["BeyondPilot · core/safety"]
+    direction TB
+    b1[Presidio<br/>nhận diện + che PII] --> b2[LLM Guard<br/>chống prompt injection] --> b3{chặn?}
+    b3 -- có --> b4[AppError code]
+    b3 -- không --> b5[đi tiếp vào module]
+  end
+  PILOT ==>|giữ interface validate → GuardrailResult| BP
+</pre></div>
+      <div class="meta">
+        <div><h4>Giữ</h4><ul><li><code>GuardrailResult</code> (sanitized_text, pii_matches, prompt_injection, blocked, reason)</li><li>Cách chạy model đồng bộ qua <code>asyncio.to_thread</code></li></ul></div>
+        <div><h4>Đổi</h4><ul><li>Pilot chặn luôn khi có PII. Với dữ liệu nội bộ Nestlé nên che PII rồi cho đi tiếp, chỉ chặn injection.</li></ul></div>
+      </div>
+    </section>
+
+    <section id="model">
+      <div class="eyebrow">Luồng 6</div>
+      <h2>Gọi model: từ LLMRouter sang LiteLLM</h2>
+      <p>Pilot tự viết fallback trong code. BeyondPilot đẩy routing, ngân sách và log sang LiteLLM; code chỉ còn một client kiểu OpenAI trỏ tới LiteLLM.</p>
+      <div class="diagram"><pre class="mermaid">
+flowchart LR
+  subgraph PILOT["Pilot · LLMRouter"]
+    direction TB
+    p1[OpenAI gpt-4o-mini] -- lỗi --> p2[Ollama llama3.1] -- lỗi --> p3[502]
+  end
+  subgraph BP["BeyondPilot"]
+    direction TB
+    s[Slot Llm<br/>AsyncOpenAI base_url=LiteLLM] --> L[LiteLLM<br/>route, ngân sách, log]
+    L --> q[vLLM: Qwen3 / Qwen-VL / GLM-OCR]
+    L --> t[TEI: bge-m3 / reranker]
+    L -.->|chỉ khi eval không đạt| x[OpenAI / Azure OpenAI / Claude]
+  end
+  PILOT ==>|giữ _call_openai, đổi base_url| BP
+</pre></div>
+    </section>
+
+    <section id="observe">
+      <div class="eyebrow">Luồng 7</div>
+      <h2>Quan sát và eval</h2>
+      <div class="diagram"><pre class="mermaid">
+flowchart LR
+  AI["AI service ♻ otel.py"] -->|OTLP| OTL[OpenTelemetry collector]
+  WK[Worker] -->|OTLP| OTL
+  OTL --> PRM[Prometheus] --> GRF[Grafana]
+  OTL -.->|chưa chốt nơi lưu trace| TR[(Tempo?)]
+  AI -->|trace LLM ♻ langfuse.py| LF[Langfuse]
+  LL[LiteLLM] -->|log, chi phí| LF
+  CI[CI pipeline] --> PF[promptfoo<br/>bộ case vàng] -->|chặn merge nếu tụt| CI
+</pre></div>
+    </section>
+
+    <section id="gaps">
+      <div class="eyebrow">Còn lại</div>
+      <h2>Phần BeyondPilot cần mà pilot chưa có</h2>
+      <div class="tbl"><table>
+        <thead><tr><th>Phần</th><th>Pipeline</th><th>Công nghệ mặc định</th></tr></thead>
+        <tbody>
+          <tr><td>A · facts + narrative</td><td>source → facts builder → writer → validator → renderer</td><td>Snowflake, DuckDB, Polars, Qwen3, WeasyPrint, python-pptx</td></tr>
+          <tr><td>C · check Xanh/Vàng/Đỏ</td><td>tách claim → luật bằng code → tra kho claim (B) → giải thích → chấm</td><td>Qwen3, module B, Review UI</td></tr>
+          <tr><td>D · đọc tài liệu</td><td>preparer → signals → reader → checker → records</td><td>pypdfium2, GLM-OCR, Docling, PaddleOCR</td></tr>
+          <tr><td>E · thị giác</td><td>chống gian lận → detector → chấm rubric → checker</td><td>imagehash, RT-DETR, Qwen-VL</td></tr>
+          <tr><td>F · ML, tối ưu</td><td>feature → train → registry → predict → optimise</td><td>LightGBM, statsforecast, PyOD, EconML, MLflow, OR-Tools</td></tr>
+          <tr><td>G · điều khiển OT</td><td>đọc OPC UA → soft-sensor → mô phỏng → khuyến nghị → kỹ sư duyệt</td><td>asyncua (chỉ đọc), LightGBM</td></tr>
+          <tr><td>H · radar tín hiệu</td><td>provider → fetcher → extractor → gộp trùng → chấm điểm → digest</td><td>httpx + SSRF guard, rapidfuzz</td></tr>
+          <tr><td>Nền tảng</td><td>Keycloak + Entra ID, Backend nghiệp vụ, Review UI, Outbox, channel adapters, OpenBao, k3s + Helm</td><td>—</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+  </main>
+</div>
