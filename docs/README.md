@@ -37,6 +37,11 @@ Thư mục này chứa các báo cáo phân tích chuyên sâu về dự án AI 
 4. **P1:** Implement RBAC
 5. **P1:** PagerDuty integration
 
+## BeyondPilot
+
+- [beyondpilot/README.md](beyondpilot/README.md) - Flow phần core, map pilot → BeyondPilot và kế hoạch task
+- [beyondpilot/core-flow.drawio](beyondpilot/core-flow.drawio) - Sơ đồ flow core (draw.io)
+
 ## Đọc Thêm
 
 - [REPORT.md](../reports/REPORT.md) - Báo cáo kỹ thuật chi tiết
