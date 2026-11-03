@@ -55,45 +55,45 @@ Mỗi module là một chuỗi slot cố định; mỗi slot có contract riêng
 
 Mỗi module vẽ theo cùng khuôn với module B ở trên: điểm vào → use case → safety → chuỗi slot → bước kiểm tra cuối → kết quả. Cột phải (resilience, diagnostics, settings, registry) giống nhau ở mọi module.
 
-#### Module A · facts + narrative (`build_report`)
+#### Module A: facts + narrative (`build_report`)
 
-![Module A · facts + narrative](images/module-a.png)
+![Module A: facts + narrative](images/module-a.png)
 
 Airflow hoặc Backend gọi. Source đọc Snowflake/Excel chỉ đọc → DuckDB tính facts → fact sheet (mỗi số có id) → Qwen3 viết bài. Validator kiểm số khớp fact sheet; sai thì Writer viết lại, tối đa 2 lần rồi dùng template. Renderer xuất HTML/PDF/PPTX vào Review UI.
 
-#### Module C · check Xanh/Vàng/Đỏ (`check_content`)
+#### Module C: check Xanh/Vàng/Đỏ (`check_content`)
 
-![Module C · check Xanh/Vàng/Đỏ](images/module-c.png)
+![Module C: check Xanh/Vàng/Đỏ](images/module-c.png)
 
 Đọc copy, KV, slide → tách claim → kiểm luật bằng code → tra kho claim qua module B → giải thích có trích điều luật → chấm màu. Có claim Vàng/Đỏ thì chuyển người duyệt trên Review UI.
 
-#### Module D · đọc tài liệu (`ingest_document`)
+#### Module D: đọc tài liệu (`ingest_document`)
 
-![Module D · đọc tài liệu](images/module-d.png)
+![Module D: đọc tài liệu](images/module-d.png)
 
 Ingest worker lấy job từ Procrastinate. Preparer → Signals → Reader (GLM-OCR, Docling) → Schema → Checker. Còn ô nghi ngờ thì vào hàng ngoại lệ cho người sửa; xong thì lưu Records và chunk sang module B, rồi webhook báo Backend.
 
-#### Module E · thị giác (`check_content (ảnh)`)
+#### Module E: thị giác (`check_content (ảnh)`)
 
-![Module E · thị giác](images/module-e.png)
+![Module E: thị giác](images/module-e.png)
 
 Ảnh từ app field, Zalo → chống gian lận (ảnh trùng, EXIF, GPS) → RT-DETR đếm sản phẩm → Qwen-VL chấm rubric → luật trưng bày. Nghi gian lận hoặc điểm thấp thì chuyển người duyệt; còn lại gửi điểm và feedback cho nhân viên.
 
-#### Module F · ML, tối ưu (`forecast / optimise`)
+#### Module F: ML, tối ưu (`forecast / optimise`)
 
-![Module F · ML, tối ưu](images/module-f.png)
+![Module F: ML, tối ưu](images/module-f.png)
 
 Airflow chạy ML job: dbt/DuckDB → feature → LightGBM → phát hiện bất thường → lưu MLflow → dự báo → OR-Tools tối ưu. Metric không qua ngưỡng thì giữ model cũ; qua thì đưa kết quả cho module A viết tóm tắt.
 
-#### Module G · điều khiển OT (`advise_setpoint`)
+#### Module G: điều khiển OT (`advise_setpoint`)
 
-![Module G · điều khiển OT](images/module-g.png)
+![Module G: điều khiển OT](images/module-g.png)
 
 OT reader đọc OPC UA (chỉ đọc) → soft-sensor → mô phỏng → đề xuất setpoint. Kỹ sư duyệt rồi tự chỉnh trên DCS; hệ thống không bao giờ tự ghi. Mọi quyết định được lưu audit.
 
-#### Module H · radar tín hiệu (`run_radar`)
+#### Module H: radar tín hiệu (`run_radar`)
 
-![Module H · radar tín hiệu](images/module-h.png)
+![Module H: radar tín hiệu](images/module-h.png)
 
 Airflow chạy hằng tuần: provider registry → fetcher (SSRF guard, trần ngân sách) → Qwen3 trích xuất có kiểm trích dẫn → gộp trùng → chấm điểm so với tuần trước → bản tin nháp. Người duyệt đồng ý thì vào Outbox; không thì sửa bản nháp.
 

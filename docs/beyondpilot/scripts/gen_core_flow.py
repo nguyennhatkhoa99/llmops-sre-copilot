@@ -1,4 +1,5 @@
 """Generate docs/beyondpilot/core-flow.drawio (2 pages)."""
+import re
 import sys
 from xml.sax.saxutils import escape, quoteattr
 
@@ -17,7 +18,27 @@ RHOMBUS = "rhombus;shape=rhombus;perimeter=rhombusPerimeter;whiteSpace=wrap;html
 
 
 def lab(title, sub=None):
-    return title if not sub else f"{title}<br><small>{sub}</small>"
+    """Title plus a smaller detail block. A leading "type: x" gets its own line;
+    the other details are joined with commas."""
+    if not sub:
+        return title
+    parts = [x.strip() for x in sub.split(" · ")]
+    lines = []
+    if parts[0].startswith("type:"):
+        lines.append(parts.pop(0))
+    if parts:
+        lines.append(", ".join(parts))
+    return f"{title}<br><small>{'<br>'.join(lines)}</small>"
+
+
+def clean(value):
+    """Drop the middle-dot separators left in titles and legends."""
+    value = re.sub(r"<b>(\d+) · ", r"<b>\1. ", value)          # slot numbers: "1 · Source" -> "1. Source"
+    value = re.sub(r"Module ([A-H]) · ", r"Module \1: ", value)  # "Module B · RAG" -> "Module B: RAG"
+    value = re.sub(r"<b>([A-H]) · ", r"<b>\1. ", value)         # page 2 lane names
+    if value.startswith("Tím:") or value.startswith("Xanh dương:"):
+        return value.replace(" · ", "; ")
+    return value.replace(" · ", ", ")
 
 
 class Page:
@@ -26,7 +47,7 @@ class Page:
 
     def v(self, cid, value, style, x, y, w, h, parent="1"):
         self.cells.append(
-            f'<mxCell id="{cid}" value={quoteattr(value)} style="{style}" vertex="1" '
+            f'<mxCell id="{cid}" value={quoteattr(clean(value))} style="{style}" vertex="1" '
             f'parent="{parent}"><mxGeometry x="{x}" y="{y}" width="{w}" height="{h}" '
             f'as="geometry"/></mxCell>')
 
@@ -178,7 +199,7 @@ COLORS = {"green": GREEN, "yellow": YELLOW, "purple": PURPLE, "orange": ORANGE, 
 # the rest run right to left on the second row.
 MODULE_PAGES = [
     ("mod-a", "3. Module A", {
-        "title": "Module A · facts + narrative: build_report",
+        "title": "Module A: facts + narrative (build_report)",
         "entry": ("Airflow / Backend", "theo lịch hoặc người dùng yêu cầu"),
         "uc": ("Use case build_report", "chọn module A"),
         "safety": "che PII trong dữ liệu nguồn", "d1": "Dữ liệu hợp lệ?",
@@ -195,7 +216,7 @@ MODULE_PAGES = [
         "ext": ("Snowflake · DuckDB · LiteLLM", "Qwen3 · SeaweedFS"),
     }),
     ("mod-c", "4. Module C", {
-        "title": "Module C · check Xanh/Vàng/Đỏ: check_content",
+        "title": "Module C: check Xanh/Vàng/Đỏ (check_content)",
         "entry": ("Lớp HTTP", "copy, KV, slide từ Backend"),
         "uc": ("Use case check_content", "chọn module C"),
         "safety": "Presidio che PII · LLM Guard", "d1": "Input an toàn?",
@@ -214,7 +235,7 @@ MODULE_PAGES = [
         "ext": ("LiteLLM · Postgres", "Qwen3 · kho claim pgvector"),
     }),
     ("mod-d", "5. Module D", {
-        "title": "Module D · đọc tài liệu: ingest_document",
+        "title": "Module D: đọc tài liệu (ingest_document)",
         "entry": ("Ingest worker", "job Procrastinate · file trên SeaweedFS"),
         "uc": ("Use case ingest_document", "module D, rồi đưa vào B"),
         "safety": "kiểm loại file, dung lượng · che PII", "d1": "File hợp lệ?",
@@ -232,7 +253,7 @@ MODULE_PAGES = [
         "ext": ("LiteLLM · Postgres · SeaweedFS", "GLM-OCR · bge-m3 · pgvector"),
     }),
     ("mod-e", "6. Module E", {
-        "title": "Module E · thị giác: chấm ảnh trưng bày",
+        "title": "Module E: thị giác (chấm ảnh trưng bày)",
         "entry": ("Lớp HTTP", "ảnh từ app field, Zalo"),
         "uc": ("Use case check_content", "ảnh → module E"),
         "safety": "kiểm loại file · làm mờ mặt người", "d1": "Ảnh hợp lệ?",
@@ -249,7 +270,7 @@ MODULE_PAGES = [
         "ext": ("LiteLLM · Postgres · SeaweedFS", "Qwen-VL · RT-DETR trên GPU"),
     }),
     ("mod-f", "7. Module F", {
-        "title": "Module F · ML, tối ưu: forecast / optimise",
+        "title": "Module F: ML, tối ưu (forecast / optimise)",
         "entry": ("Airflow", "ML job theo lịch"),
         "uc": ("Use case forecast / optimise", "chọn module F"),
         "safety": "chỉ đọc dữ liệu · kiểm schema", "d1": "Dữ liệu đủ?",
@@ -268,7 +289,7 @@ MODULE_PAGES = [
         "ext": ("DuckDB · MLflow · Postgres", "dbt · Snowflake chỉ đọc"),
     }),
     ("mod-g", "8. Module G", {
-        "title": "Module G · điều khiển OT: advise_setpoint",
+        "title": "Module G: điều khiển OT (advise_setpoint)",
         "entry": ("OT reader", "worker đọc dữ liệu nhà máy"),
         "uc": ("Use case advise_setpoint", "chọn module G"),
         "safety": "chỉ đọc OPC UA · không có quyền ghi", "d1": "Tín hiệu hợp lệ?",
@@ -285,7 +306,7 @@ MODULE_PAGES = [
         "ext": ("MES · historian (OPC UA)", "chỉ đọc · Postgres"),
     }),
     ("mod-h", "9. Module H", {
-        "title": "Module H · radar tín hiệu: run_radar",
+        "title": "Module H: radar tín hiệu (run_radar)",
         "entry": ("Airflow", "lịch chạy hằng tuần"),
         "uc": ("Use case run_radar", "chọn module H"),
         "safety": "SSRF guard · chỉ nguồn được phép", "d1": "Nguồn được phép?",
