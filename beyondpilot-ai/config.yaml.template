@@ -1,0 +1,32 @@
+# Copy to config.yaml. Secrets are never written here: use ${NAME} and let
+# OpenBao (or your shell, locally) provide them as environment variables.
+# ${NAME:-default} gives a default; ${NAME} without one must be set.
+
+api_keys:
+  - ${BEYONDPILOT_API_KEY}
+api_key_header: X-API-Key
+
+resilience:
+  attempts: 3        # total tries per outside call
+  base_delay: 0.5    # seconds; doubles each try
+  max_delay: 8       # also caps Retry-After
+  timeout: 30        # seconds per try
+
+validator:
+  max_retries: 2     # rewrites before falling back to the template
+  tolerance: 0.005
+
+safety:
+  block_on_pii: false  # mask PII and continue; prompt injection always blocks
+
+# Each module is a chain of slots. type: is the file name under
+# beyondpilot/slots/<kind>/. kind defaults to the slot's key.
+modules:
+  rag:
+    slots:
+      llm:
+        type: litellm
+        params:
+          base_url: ${LITELLM_BASE_URL:-http://litellm:4000/v1}
+          api_key: ${LITELLM_API_KEY}
+          model: ${RAG_MODEL:-qwen3}

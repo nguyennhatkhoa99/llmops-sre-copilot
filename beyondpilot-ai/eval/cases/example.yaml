@@ -1,0 +1,11 @@
+# Format of a gold case. Replace with real questions from the Nestlé workspace
+# once /api/v1/chat (use case answer_question) exists.
+- description: Câu trả lời phải có trích dẫn
+  vars:
+    question: "Chính sách đổi trả hàng hư hỏng là gì?"
+    workspace_id: demo
+  assert:
+    - type: contains
+      value: "["
+    - type: not-contains
+      value: "Tôi không biết"

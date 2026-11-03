@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>{{ title }}</title>
+<style>
+  body { font-family: "Be Vietnam Pro", Arial, sans-serif; color: #1f2933; margin: 32px; line-height: 1.55; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .meta { color: #616e7c; font-size: 13px; margin-bottom: 20px; }
+  .body { white-space: pre-line; }
+  table { border-collapse: collapse; margin-top: 20px; font-size: 13px; }
+  th, td { border: 1px solid #cbd2d9; padding: 6px 10px; text-align: left; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+  <h1>{{ title }}</h1>
+  <div class="meta">{{ subtitle }}</div>
+  <div class="body">{{ body }}</div>
+  {% if facts %}
+  <table>
+    <thead><tr><th>Chỉ số</th><th>Giá trị</th></tr></thead>
+    <tbody>
+    {% for label, value in facts %}
+      <tr><td>{{ label }}</td><td class="num">{{ value }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</body>
+</html>
