@@ -8,8 +8,8 @@ Kiến trúc BeyondPilot lấy từ sơ đồ `he-sinh-thai-ai.drawio` (3 trang)
 
 | File | Nội dung | Mở bằng |
 |---|---|---|
-| [core-flow.drawio](core-flow.drawio) | 2 trang: flow core (ví dụ hỏi đáp) và chuỗi slot của 8 module | draw.io hoặc app.diagrams.net |
-| [images/core-flow.png](images/core-flow.png), [images/module-slots.png](images/module-slots.png) | Ảnh xuất từ 2 trang trên, nhúng vào README này | Bất kỳ trình xem ảnh |
+| [core-flow.drawio](core-flow.drawio) | 9 trang: flow core (module B), chuỗi slot 8 module, và 7 trang chi tiết module A, C, D, E, F, G, H | draw.io hoặc app.diagrams.net |
+| [images/](images/) | Ảnh xuất từ 9 trang trên, nhúng vào README này | Bất kỳ trình xem ảnh |
 | [scripts/](scripts/) | Script sinh file `.drawio` và xuất ảnh PNG | Python, Node |
 | [beyondpilot-flows.html](beyondpilot-flows.html) | Bảng map pilot → BeyondPilot và các luồng (sơ đồ Mermaid) | Trình duyệt |
 
@@ -50,6 +50,52 @@ Kiến trúc BeyondPilot lấy từ sơ đồ `he-sinh-thai-ai.drawio` (3 trang)
 ![Chuỗi slot của 8 module](images/module-slots.png)
 
 Mỗi module là một chuỗi slot cố định; mỗi slot có contract riêng và chọn bản cài bằng `type:` trong config. Ô vàng là bước có người duyệt qua Review UI. Đổi công nghệ (ví dụ thay GLM-OCR bằng Azure Document Intelligence) là đổi `type:` của slot đó, không sửa code module.
+
+### Chi tiết từng module
+
+Mỗi module vẽ theo cùng khuôn với module B ở trên: điểm vào → use case → safety → chuỗi slot → bước kiểm tra cuối → kết quả. Cột phải (resilience, diagnostics, settings, registry) giống nhau ở mọi module.
+
+#### Module A · facts + narrative (`build_report`)
+
+![Module A · facts + narrative](images/module-a.png)
+
+Airflow hoặc Backend gọi. Source đọc Snowflake/Excel chỉ đọc → DuckDB tính facts → fact sheet (mỗi số có id) → Qwen3 viết bài. Validator kiểm số khớp fact sheet; sai thì Writer viết lại, tối đa 2 lần rồi dùng template. Renderer xuất HTML/PDF/PPTX vào Review UI.
+
+#### Module C · check Xanh/Vàng/Đỏ (`check_content`)
+
+![Module C · check Xanh/Vàng/Đỏ](images/module-c.png)
+
+Đọc copy, KV, slide → tách claim → kiểm luật bằng code → tra kho claim qua module B → giải thích có trích điều luật → chấm màu. Có claim Vàng/Đỏ thì chuyển người duyệt trên Review UI.
+
+#### Module D · đọc tài liệu (`ingest_document`)
+
+![Module D · đọc tài liệu](images/module-d.png)
+
+Ingest worker lấy job từ Procrastinate. Preparer → Signals → Reader (GLM-OCR, Docling) → Schema → Checker. Còn ô nghi ngờ thì vào hàng ngoại lệ cho người sửa; xong thì lưu Records và chunk sang module B, rồi webhook báo Backend.
+
+#### Module E · thị giác (`check_content (ảnh)`)
+
+![Module E · thị giác](images/module-e.png)
+
+Ảnh từ app field, Zalo → chống gian lận (ảnh trùng, EXIF, GPS) → RT-DETR đếm sản phẩm → Qwen-VL chấm rubric → luật trưng bày. Nghi gian lận hoặc điểm thấp thì chuyển người duyệt; còn lại gửi điểm và feedback cho nhân viên.
+
+#### Module F · ML, tối ưu (`forecast / optimise`)
+
+![Module F · ML, tối ưu](images/module-f.png)
+
+Airflow chạy ML job: dbt/DuckDB → feature → LightGBM → phát hiện bất thường → lưu MLflow → dự báo → OR-Tools tối ưu. Metric không qua ngưỡng thì giữ model cũ; qua thì đưa kết quả cho module A viết tóm tắt.
+
+#### Module G · điều khiển OT (`advise_setpoint`)
+
+![Module G · điều khiển OT](images/module-g.png)
+
+OT reader đọc OPC UA (chỉ đọc) → soft-sensor → mô phỏng → đề xuất setpoint. Kỹ sư duyệt rồi tự chỉnh trên DCS; hệ thống không bao giờ tự ghi. Mọi quyết định được lưu audit.
+
+#### Module H · radar tín hiệu (`run_radar`)
+
+![Module H · radar tín hiệu](images/module-h.png)
+
+Airflow chạy hằng tuần: provider registry → fetcher (SSRF guard, trần ngân sách) → Qwen3 trích xuất có kiểm trích dẫn → gộp trùng → chấm điểm so với tuần trước → bản tin nháp. Người duyệt đồng ý thì vào Outbox; không thì sửa bản nháp.
 
 ### Ngoài đường request
 
@@ -167,7 +213,7 @@ python3 docs/beyondpilot/scripts/gen_core_flow.py docs/beyondpilot/core-flow.dra
 ```
 
 ```bash
-cd docs/beyondpilot/scripts && npm install --no-save mxgraph@4.2.2 playwright && node render_drawio.js ../core-flow.drawio ../images/core-flow.png 0 && node render_drawio.js ../core-flow.drawio ../images/module-slots.png 1
+cd docs/beyondpilot/scripts && npm install --no-save mxgraph@4.2.2 playwright && node render_drawio.js ../core-flow.drawio ../images/core-flow.png 0 && node render_drawio.js ../core-flow.drawio ../images/module-slots.png 1 && i=2; for m in a c d e f g h; do node render_drawio.js ../core-flow.drawio ../images/module-$m.png $i; i=$((i+1)); done
 ```
 
 Tham số cuối là số trang (0 là trang 1). Sửa tay trong draw.io cũng được, nhưng lần chạy script sau sẽ ghi đè.
