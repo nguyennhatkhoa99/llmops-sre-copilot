@@ -23,7 +23,7 @@ async def ping() -> dict[str, bool]:
 @router.post("/chat", response_model=ChatResponse)
 async def chat(body: ChatRequest, request: Request) -> ChatResponse:
     """Use case answer_question: an answer with a citation on every sentence."""
-    pipeline = request.app.state.rag
+    pipeline = getattr(request.app.state, "modules", {}).get("rag")
     if pipeline is None:
         raise AppError(ErrorCode.FEATURE_UNAVAILABLE, "module rag is not configured")
     result = await answer_question(

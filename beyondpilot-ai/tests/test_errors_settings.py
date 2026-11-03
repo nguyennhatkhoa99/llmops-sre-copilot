@@ -87,6 +87,22 @@ def test_template_file_is_valid():
     template = Path(__file__).resolve().parent.parent / "config.yaml.template"
     s = load_settings(
         template,
-        env={"BEYONDPILOT_API_KEY": "k", "LITELLM_API_KEY": "l", "PG_DSN": "postgresql://x"},
+        env={
+            "BEYONDPILOT_API_KEY": "k",
+            "LITELLM_API_KEY": "l",
+            "PG_DSN": "postgresql://x",
+            "BACKEND_API_KEY": "b",
+        },
     )
     assert s.modules["rag"].slots["llm"].type == "litellm"
+    assert set(s.modules) == {
+        "rag",
+        "report",
+        "content_check",
+        "documents",
+        "vision",
+        "forecast",
+        "ot",
+        "radar",
+    }
+    assert s.modules["content_check"].slots["review"].params["api_key"] == "b"

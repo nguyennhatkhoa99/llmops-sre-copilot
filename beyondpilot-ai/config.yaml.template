@@ -62,3 +62,197 @@ modules:
         type: tei
         params:
           base_url: ${RERANK_URL:-http://tei-rerank:80}
+
+  report:                    # module A, use case build_report
+    options:
+      reports:
+        doanh_thu_quy:
+          title: Doanh thu theo quý
+          source: doanh_thu_quy        # named query below
+          allowed_params: [nam]
+          metrics:                     # duckdb: one SQL query per fact, over table t
+            rev_q3: "SELECT sum(doanh_thu) FROM t WHERE quy = 'Q3'"
+            rev_q2: "SELECT sum(doanh_thu) FROM t WHERE quy = 'Q2'"
+          labels: {rev_q3: Doanh thu Q3 (tỷ đồng), rev_q2: Doanh thu Q2 (tỷ đồng)}
+          instructions: So sánh quý 3 với quý 2 và nêu điểm cần chú ý.
+    slots:
+      source:
+        type: snowflake
+        kind: table_source
+        params:
+          account: ${SNOWFLAKE_ACCOUNT:-nestle}
+          user: ${SNOWFLAKE_USER:-ai_readonly}
+          password: ${SNOWFLAKE_PASSWORD:-}
+          warehouse: ${SNOWFLAKE_WAREHOUSE:-AI_WH}
+          database: ${SNOWFLAKE_DATABASE:-SALES}
+          schema: ${SNOWFLAKE_SCHEMA:-MART}
+          queries:
+            doanh_thu_quy: "SELECT quy, doanh_thu FROM doanh_thu_quy WHERE nam = %(nam)s"
+      facts: {type: duckdb}
+      llm:
+        type: litellm
+        params:
+          base_url: ${LITELLM_BASE_URL:-http://litellm:4000/v1}
+          api_key: ${LITELLM_API_KEY}
+          model: ${RAG_MODEL:-qwen3}
+      review: &review
+        type: webhook
+        params:
+          base_url: ${BACKEND_URL:-http://backend:8000/internal}
+          api_key: ${BACKEND_API_KEY}
+
+  content_check:             # module C, use case check_content
+    options:
+      claims_workspace: claims-da-duyet
+      rules:
+        banned:
+          - {pattern: "chữa\\s+(khỏi\\s+)?bệnh", message: Thực phẩm không được nói chữa bệnh}
+          - {pattern: "tốt nhất", message: Không dùng so sánh tuyệt đối}
+        required:
+          - {pattern: "chế độ ăn (uống )?cân bằng", message: Thiếu câu về chế độ ăn cân bằng}
+    slots:
+      llm: &qwen
+        type: litellm
+        params:
+          base_url: ${LITELLM_BASE_URL:-http://litellm:4000/v1}
+          api_key: ${LITELLM_API_KEY}
+          model: ${RAG_MODEL:-qwen3}
+      retriever:
+        type: hybrid
+        params: {embedder: "@rag.embedder", store: "@rag.store", alpha: 0.5}
+      review: *review
+
+  documents:                 # module D, use case ingest_document (embedder/store default to rag's)
+    options:
+      max_bytes: 20971520
+      mask_pii_in_index: true
+      doc_types:
+        hoa_don:
+          keywords: ["hóa đơn", "invoice", "VAT"]
+          fields:
+            so_hoa_don: {type: string, required: true}
+            ngay: {type: date, required: true}
+            tien_hang: {type: number}
+            thue: {type: number}
+            tong_tien: {type: number, required: true}
+          sums: [{parts: [tien_hang, thue], total: tong_tien}]
+    slots:
+      text_reader: {type: plain, kind: reader}
+      pdf_reader: {type: pdf_text, kind: reader}
+      ocr_llm:
+        type: litellm
+        kind: llm
+        params:
+          base_url: ${LITELLM_BASE_URL:-http://litellm:4000/v1}
+          api_key: ${LITELLM_API_KEY}
+          model: ${OCR_MODEL:-glm-ocr}
+      ocr_reader: {type: vlm_ocr, kind: reader, params: {llm: "@ocr_llm"}}
+      llm: *qwen
+      records: &records
+        type: postgres
+        params: {dsn: "${PG_DSN}", table: ai_records}
+      review: *review
+      notifier:
+        type: webhook
+        params:
+          base_url: ${BACKEND_URL:-http://backend:8000/internal}
+          api_key: ${BACKEND_API_KEY}
+
+  vision:                    # module E, use case check_image
+    options:
+      max_age_hours: 24
+      max_distance_m: 200
+      rubrics:
+        milo_ke_chinh:
+          min_score: 70
+          criteria:
+            - {id: vi_tri, description: Kệ ngang tầm mắt, max: 40}
+            - {id: mat_tien, description: Đủ mặt tiền theo planogram, max: 40}
+            - {id: sach_se, description: Kệ sạch, không hàng đổ, max: 20}
+          min_count: {milo_hop: 6}
+    slots:
+      detector:
+        type: http
+        params: {url: "${DETECTOR_URL:-http://rtdetr:8080/detect}", min_score: 0.4}
+      llm:
+        type: litellm
+        params:
+          base_url: ${LITELLM_BASE_URL:-http://litellm:4000/v1}
+          api_key: ${LITELLM_API_KEY}
+          model: ${VLM_MODEL:-qwen-vl}
+      records: *records
+      review: *review
+
+  forecast:                  # module F, use case forecast / optimise
+    options:
+      season_length: 7
+      mape_threshold: 25
+      series:
+        milo_theo_vung:
+          query: ban_hang_ngay
+          date_column: ngay
+          value_column: so_thung
+          group_column: vung
+    slots:
+      source:
+        type: snowflake
+        kind: table_source
+        params:
+          account: ${SNOWFLAKE_ACCOUNT:-nestle}
+          user: ${SNOWFLAKE_USER:-ai_readonly}
+          password: ${SNOWFLAKE_PASSWORD:-}
+          warehouse: ${SNOWFLAKE_WAREHOUSE:-AI_WH}
+          database: ${SNOWFLAKE_DATABASE:-SALES}
+          schema: ${SNOWFLAKE_SCHEMA:-MART}
+          queries:
+            ban_hang_ngay: "SELECT ngay, vung, so_thung FROM ban_hang_ngay ORDER BY ngay"
+      forecaster: {type: lightgbm, params: {season_length: 7}}
+      allocator: {type: ortools}
+      model_registry:
+        type: mlflow
+        params: {tracking_uri: "${MLFLOW_URI:-http://mlflow:5000}"}
+      llm: *qwen
+
+  ot:                        # module G, use case advise_setpoint (read only, engineer approves)
+    options:
+      lines:
+        line1:
+          inputs: {nhiet_do_say: L1.DryerTemp, toc_do_bang_tai: L1.BeltSpeed}
+          setpoints:
+            nhiet_do_say: {min: 160, max: 190, max_step: 5}
+          target: {name: do_am, goal: 3.0, max: 3.5}
+          ranges: {toc_do_bang_tai: [0.5, 2.0]}
+          max_age_s: 60
+    slots:
+      reader:
+        type: asyncua
+        kind: plant_reader
+        params:
+          endpoint: ${OPCUA_ENDPOINT:-opc.tcp://historian:4840}
+          username: ${OPCUA_USER:-ai_readonly}
+          password: ${OPCUA_PASSWORD:-}
+          nodes: {L1.DryerTemp: "ns=2;s=Line1.Dryer.Temp", L1.BeltSpeed: "ns=2;s=Line1.Belt.Speed"}
+      soft_sensor:
+        type: linear
+        params: {coefficients: {nhiet_do_say: -0.05, toc_do_bang_tai: 1.0}, intercept: 11.0}
+      records: *records
+      review: *review
+
+  radar:                     # module H, use case run_radar
+    options:
+      max_pages: 30
+      min_score: 2
+      keywords: {"ghi nhãn": 3, "sữa": 2, "khuyến mại": 2, "giá": 1}
+      providers:
+        - name: cong_bao
+          urls: ["https://congbao.chinhphu.vn/"]
+          terms: Văn bản pháp luật công khai
+    slots:
+      fetcher:
+        type: http
+        params:
+          allowed_domains: [congbao.chinhphu.vn]
+          max_bytes: 2000000
+      llm: *qwen
+      records: *records
+      review: *review

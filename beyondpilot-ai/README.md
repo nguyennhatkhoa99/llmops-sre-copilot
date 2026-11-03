@@ -1,6 +1,6 @@
 # BeyondPilot AI service: phần core
 
-Lõi dùng chung cho AI service của BeyondPilot, dựng theo flow core trong `docs/beyondpilot/` (branch `docs/beyondpilot-flows`). Các module A–H cắm vào lõi này qua contract. Đã có module B (`answer_question`).
+Lõi dùng chung cho AI service của BeyondPilot, dựng theo flow core trong `docs/beyondpilot/` (branch `docs/beyondpilot-flows`). Cả 8 module A–H đã cắm vào lõi này qua contract, mỗi module một endpoint.
 
 ## Chạy thử
 
@@ -29,11 +29,21 @@ BEYONDPILOT_API_KEY=dev-key LITELLM_API_KEY=x .venv/bin/uvicorn beyondpilot.api.
 - `GET /internal/v1/health`: liveness, không cần key.
 - `GET /internal/v1/ready`: readiness, báo số slot đã lắp và backend safety đang dùng.
 - `GET /api/v1/ping` với header `X-API-Key`: kiểm key của Backend.
-- `POST /api/v1/chat` với header `X-API-Key`: hỏi đáp có trích dẫn (module B).
+- Các endpoint của 8 module, đều cần header `X-API-Key` (bảng ở mục "8 module").
 
 Config mẫu dùng Valkey, pgvector, LiteLLM và TEI thật. Chạy thử không cần các dịch vụ đó thì dùng các bản cài trong bộ nhớ: `cache: memory`, `embedder: hashing`, `store: memory`, `reranker: passthrough`, `llm: echo`.
 
-Thêm Valkey + PostgreSQL cho module B: `uv pip install -e ".[rag]"`. Thêm Presidio + LLM Guard: `uv pip install -e ".[safety]"`. Thêm xuất PDF, PPTX: `".[render]"`. Thêm OpenTelemetry: `".[otel]"`.
+Mỗi module chỉ cần thư viện của nó khi được bật trong config:
+
+| Extra | Cho | Gồm |
+|---|---|---|
+| `rag` | B, D, E, G, H (lưu trữ) | redis (Valkey), psycopg, psycopg-pool |
+| `documents` | D | pypdfium2, Pillow |
+| `vision` | E | Pillow |
+| `ml` | A (DuckDB), F | duckdb, numpy, lightgbm, mlflow, ortools |
+| `snowflake` | A, F (nguồn Snowflake) | snowflake-connector-python |
+| `ot` | G (OPC UA) | asyncua |
+ Thêm Presidio + LLM Guard: `uv pip install -e ".[safety]"`. Thêm xuất PDF, PPTX: `".[render]"`. Thêm OpenTelemetry: `".[otel]"`.
 
 ## 10 khối core
 
@@ -51,6 +61,26 @@ Thêm Valkey + PostgreSQL cho module B: `uv pip install -e ".[rag]"`. Thêm Pres
 | eval harness | `eval/` | Khung promptfoo và định dạng bộ case vàng, để chạy trong CI |
 
 Lớp HTTP (`api/`): app factory, xác thực `X-API-Key` so khớp hằng thời gian với mọi key, mọi lỗi trả về `{code, message}`.
+
+## 8 module
+
+| Module | Endpoint | Chuỗi slot | Bước kiểm tra cuối |
+|---|---|---|---|
+| A. facts + narrative | `POST /api/v1/reports` | table_source → facts → writer (`{{ biểu thức }}`) → validator → renderer | Số liệu khớp facts; sai thì viết lại tối đa 2 lần, rồi dùng danh sách facts |
+| B. RAG | `POST /api/v1/chat` | cache → rewriter → embedder → store → retriever → reranker → synthesizer | Câu nào cũng có trích dẫn, số có trong nguồn được trích |
+| C. check Xanh/Vàng/Đỏ | `POST /api/v1/checks/content` | tách claim → luật bằng code → tra claim đã duyệt (retriever của B) → giải thích | Vàng/Đỏ thì vào Review UI; kết quả không kiểm được thì là Vàng, không bao giờ Xanh |
+| D. đọc tài liệu | `POST /api/v1/documents` (multipart) | preparer → reader (text, PDF, OCR) → signals → schema (LLM, JSON) → checker → records → nạp vào kho của B | Còn ô nghi ngờ thì vào hàng ngoại lệ trên Review UI |
+| E. thị giác | `POST /api/v1/checks/image` (multipart) | chống gian lận → detector → chấm rubric (VLM, JSON) → luật trưng bày | Nghi gian lận, điểm thấp hoặc không chấm được thì vào Review UI |
+| F. ML, tối ưu | `POST /api/v1/forecasts` | dữ liệu → bất thường → backtest so với mô hình nền → dự báo → phân bổ → giải thích | MAPE vượt ngưỡng hoặc thua mô hình nền thì dùng mô hình nền, `published=false` |
+| G. điều khiển OT | `POST /api/v1/setpoints/advise` | đọc OPC UA (chỉ đọc) → kiểm tín hiệu → soft-sensor → mô phỏng → khuyến nghị | Luôn chờ kỹ sư duyệt; `applied` luôn `false`; lưu audit |
+| H. radar | `POST /api/v1/radar/runs` | provider → fetcher (chặn SSRF, giới hạn ngân sách) → extractor (quote nguyên văn) → gộp trùng → chấm điểm → digest | Bản tin vào Review UI; chỉ bản đã duyệt mới sang Outbox |
+
+Những điểm chung:
+- **Bản cài cho dev:** mỗi slot đều có một bản chạy không cần dịch vụ ngoài (`memory`, `static`, `hashing`, `echo`, `seasonal_naive`, `proportional`, `linear`), để chạy thử và để test.
+- **Đọc JSON từ LLM:** C, D, E, H dùng `core/jsonout.py`. LLM trả sai định dạng thì được gửi lỗi để viết lại; vẫn sai thì chuyển cho người, không đoán.
+- **Hàng duyệt và tiến độ:** Review UI và Outbox do Backend quản lý. AI service chỉ gửi item qua slot `review` (có idempotency key để retry không tạo bản trùng) và gửi tiến độ qua slot `notifier`.
+- **Dùng chung slot giữa các module:** viết `"@rag.store"` để trỏ sang slot của module khác. Module D mặc định ghi vào kho của B, nên tài liệu vừa nạp hỏi đáp được ngay.
+- **Không có câu SQL nào đi từ API:** báo cáo, chuỗi dữ liệu và truy vấn Snowflake đều khai báo trong config theo tên.
 
 ## Module B: hỏi đáp có trích dẫn
 
@@ -103,8 +133,10 @@ Hàm có sẵn: `pct(a, b)`, `share(a, b)`, `round(x, n)`, `abs`, `min`, `max`, 
 
 ## Chưa làm
 
-- Module A, C, D, E, F, G, H và endpoint nạp tài liệu.
-- Progress hook về Backend.
-- Chạy thử slot `pgvector`, `valkey`, `tei` với dịch vụ thật (hiện mới test bằng bản giả lập).
-- Dockerfile, Helm chart.
-- Bộ case vàng thật cho promptfoo; `eval/cases/example.yaml` mới chỉ là định dạng mẫu.
+- **Chạy với dịch vụ thật:** các slot thật (pgvector, Valkey, TEI, LiteLLM, Snowflake, MLflow, OPC UA, máy chủ RT-DETR) mới chỉ test bằng bản giả lập.
+- **Hàng đợi Procrastinate cho module D:** endpoint `/documents` đang xử lý ngay trong request.
+- **Làm mờ mặt người trong ảnh (E):** chưa có, cần một model nhận diện khuôn mặt.
+- **Soft-sensor thật cho G:** đang dùng bản tuyến tính hệ số cấu hình tay; bản LightGBM cần file model huấn luyện từ dữ liệu nhà máy.
+- **Xoá chunk cũ khi nạp lại tài liệu (D):** nạp lại cùng `doc_id` thì ghi đè các chunk cùng vị trí, nhưng chunk thừa của bản cũ vẫn còn.
+- **Dockerfile, Helm chart.**
+- **Bộ case vàng thật cho promptfoo.**

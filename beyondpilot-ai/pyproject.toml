@@ -12,6 +12,7 @@ dependencies = [
     "httpx>=0.27",
     "openai>=1.55",
     "jinja2>=3.1",
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]
@@ -31,6 +32,31 @@ rag = [
     "redis>=5.0",
     "psycopg[binary]>=3.2",
     "psycopg-pool>=3.2",
+]
+# Module D: PDF text and page rendering for OCR.
+documents = [
+    "pypdfium2>=4.30",
+    "pillow>=10.0",
+]
+# Module E: image checks.
+vision = [
+    "pillow>=10.0",
+]
+# Modules A and F: DuckDB facts, LightGBM, MLflow, OR-Tools.
+ml = [
+    "duckdb>=1.0",
+    "numpy>=1.26",
+    "lightgbm>=4.3",
+    "mlflow>=2.14",
+    "ortools>=9.10",
+]
+# Module A: Snowflake source.
+snowflake = [
+    "snowflake-connector-python>=3.10",
+]
+# Module G: OPC UA reader.
+ot = [
+    "asyncua>=1.1",
 ]
 otel = [
     "opentelemetry-sdk>=1.28",
@@ -55,6 +81,10 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI declares request parameters with these calls as defaults.
+extend-immutable-calls = ["fastapi.File", "fastapi.Form", "fastapi.Depends"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

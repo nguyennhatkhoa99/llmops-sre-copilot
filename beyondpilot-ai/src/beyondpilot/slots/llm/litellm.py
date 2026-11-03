@@ -7,6 +7,7 @@ config, not here. The OpenAI client's built-in retries are turned off so that
 
 from __future__ import annotations
 
+import base64
 from collections.abc import Sequence
 from typing import Any
 
@@ -16,6 +17,25 @@ from beyondpilot.core.contracts import LlmResult, Message
 from beyondpilot.core.diagnostics import record_tokens
 from beyondpilot.core.resilience import call_with_retry
 from beyondpilot.core.settings import ResilienceConfig
+
+
+def _message(m: Message) -> dict[str, Any]:
+    """OpenAI chat format; images become data-URI parts for vision models."""
+    if not m.images:
+        return {"role": m.role, "content": m.content}
+    parts: list[dict[str, Any]] = [{"type": "text", "text": m.content}]
+    for image in m.images:
+        url = "data:" + sniff_mime(image) + ";base64," + base64.b64encode(image).decode()
+        parts.append({"type": "image_url", "image_url": {"url": url}})
+    return {"role": m.role, "content": parts}
+
+
+def sniff_mime(data: bytes) -> str:
+    if data.startswith(b"\x89PNG"):
+        return "image/png"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return "image/jpeg"
 
 
 class Impl:
@@ -37,7 +57,7 @@ class Impl:
         self.client = client or AsyncOpenAI(base_url=base_url, api_key=api_key, max_retries=0)
 
     async def complete(self, messages: Sequence[Message], **options: Any) -> LlmResult:
-        payload = [{"role": m.role, "content": m.content} for m in messages]
+        payload = [_message(m) for m in messages]
         params = {"temperature": self.temperature, **options}
         model = params.pop("model", self.model)
 

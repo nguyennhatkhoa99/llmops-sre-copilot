@@ -17,6 +17,7 @@ from typing import Any, Protocol, runtime_checkable
 class Message:
     role: str  # "system" | "user" | "assistant"
     content: str
+    images: tuple[bytes, ...] = ()  # sent to vision models (Qwen-VL, GLM-OCR)
 
 
 @dataclass(frozen=True)
@@ -129,6 +130,110 @@ class Checker(Protocol):
     async def check(self, item: Any) -> CheckResult: ...
 
 
+# ---------- data shared by modules A, C-H ----------
+
+
+@dataclass(frozen=True)
+class Detection:
+    label: str
+    score: float
+    box: tuple[float, float, float, float] = (0, 0, 0, 0)  # x1, y1, x2, y2 in pixels
+
+
+@dataclass(frozen=True)
+class TagValue:
+    value: float
+    timestamp: float  # unix seconds from the historian / OPC UA server
+    good: bool = True  # OPC UA status code is Good
+
+
+@dataclass(frozen=True)
+class Page:
+    url: str
+    status: int
+    text: str
+
+
+@runtime_checkable
+class TableSource(Protocol):
+    """Rows from a named, pre-defined query. Callers never send SQL."""
+
+    async def fetch_table(self, name: str, params: Mapping[str, Any]) -> list[dict[str, Any]]: ...
+
+
+@runtime_checkable
+class FactsBuilder(Protocol):
+    async def compute(
+        self, rows: Sequence[Mapping[str, Any]], metrics: Mapping[str, Any]
+    ) -> dict[str, float]: ...
+
+
+@runtime_checkable
+class ReviewQueue(Protocol):
+    """Hands an item to the Backend's Review UI. Returns the review id."""
+
+    async def submit(self, kind: str, payload: Mapping[str, Any]) -> str: ...
+
+
+@runtime_checkable
+class Notifier(Protocol):
+    """Progress events to the Backend (seq + event_id)."""
+
+    async def notify(self, event: str, payload: Mapping[str, Any]) -> None: ...
+
+
+@runtime_checkable
+class RecordStore(Protocol):
+    async def save(self, collection: str, key: str, data: Mapping[str, Any]) -> None: ...
+
+    async def get(self, collection: str, key: str) -> dict[str, Any] | None: ...
+
+    async def list(self, collection: str, prefix: str = "") -> list[dict[str, Any]]: ...
+
+
+@runtime_checkable
+class Detector(Protocol):
+    async def detect(self, image: bytes) -> list[Detection]: ...
+
+
+@runtime_checkable
+class Forecaster(Protocol):
+    async def forecast(self, history: Sequence[float], horizon: int) -> list[float]: ...
+
+
+@runtime_checkable
+class ModelRegistry(Protocol):
+    async def log(
+        self, name: str, metrics: Mapping[str, float], params: Mapping[str, Any]
+    ) -> str: ...
+
+    async def latest(self, name: str) -> dict[str, Any] | None: ...
+
+
+@runtime_checkable
+class Allocator(Protocol):
+    async def allocate(
+        self, demand: Mapping[str, float], supply: float, caps: Mapping[str, float]
+    ) -> dict[str, float]: ...
+
+
+@runtime_checkable
+class PlantReader(Protocol):
+    """Read-only access to plant signals. There is deliberately no write method."""
+
+    async def read_tags(self, tags: Sequence[str]) -> dict[str, TagValue]: ...
+
+
+@runtime_checkable
+class SoftSensor(Protocol):
+    async def predict(self, inputs: Mapping[str, float]) -> float: ...
+
+
+@runtime_checkable
+class Fetcher(Protocol):
+    async def fetch(self, url: str) -> Page: ...
+
+
 # Contract name used in config (``kind``) -> Protocol.
 CONTRACTS: dict[str, type] = {
     "cache": Cache,
@@ -141,4 +246,16 @@ CONTRACTS: dict[str, type] = {
     "reader": Reader,
     "writer": Writer,
     "checker": Checker,
+    "table_source": TableSource,
+    "facts": FactsBuilder,
+    "review": ReviewQueue,
+    "notifier": Notifier,
+    "records": RecordStore,
+    "detector": Detector,
+    "forecaster": Forecaster,
+    "model_registry": ModelRegistry,
+    "allocator": Allocator,
+    "plant_reader": PlantReader,
+    "soft_sensor": SoftSensor,
+    "fetcher": Fetcher,
 }
