@@ -10,11 +10,11 @@ from beyondpilot.core.settings import ResilienceConfig, SlotConfig, parse_settin
 
 async def test_registry_builds_configured_slots(settings):
     registry = Registry(settings)
-    llm = registry.get("rag", "llm")
+    llm = registry.get("demo", "llm")
     assert isinstance(llm, Llm)
     result = await llm.complete([Message("user", "xin chào")])
     assert result.text == "> xin chào"
-    assert registry.slots() == [("rag", "llm")]
+    assert registry.slots() == [("demo", "llm")]
 
 
 def test_type_name_is_file_name():

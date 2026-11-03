@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 
 from beyondpilot.core.diagnostics import log_scope
@@ -31,6 +31,20 @@ _LABEL_BEFORE_RE = re.compile(
 
 def _is_year(value: float) -> bool:
     return value.is_integer() and 1900 <= value <= 2100
+
+
+def typed_numbers(
+    text: str, ignore: Callable[[float], bool] = _is_year
+) -> Iterator[tuple[str, float]]:
+    """Numbers written in ``text`` that count as figures: skips years and labels like "quý 3"."""
+    for match in _NUMBER_RE.finditer(text):
+        raw = match.group(0)
+        value = parse_number(raw)
+        if value is None or ignore(value):
+            continue
+        if not raw.endswith("%") and _LABEL_BEFORE_RE.search(text[: match.start()]):
+            continue
+        yield raw, value
 
 
 @dataclass
@@ -59,15 +73,9 @@ def validate(
         )
 
     typed_only = EXPR_RE.sub(" ", text)  # numbers inside {{ }} are already checked
-    for match in _NUMBER_RE.finditer(typed_only):
-        value = parse_number(match.group(0))
-        if value is None or ignore(value) or matches_known(value):
-            continue
-        if not match.group(0).endswith("%") and _LABEL_BEFORE_RE.search(
-            typed_only[: match.start()]
-        ):
-            continue
-        errors.append(f"số {match.group(0)} không tính được từ facts; hãy dùng {{{{ biểu thức }}}}")
+    for raw, value in typed_numbers(typed_only, ignore):
+        if not matches_known(value):
+            errors.append(f"số {raw} không tính được từ facts; hãy dùng {{{{ biểu thức }}}}")
     return ValidationResult(ok=not errors, text=rendered.text, errors=errors)
 
 

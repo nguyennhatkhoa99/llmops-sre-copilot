@@ -38,6 +38,7 @@ class Document:
 class Chunk:
     id: str
     doc_id: str
+    workspace_id: str
     text: str
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
@@ -54,6 +55,12 @@ class AccessFilter:
 
     workspace_id: str
     doc_ids: Sequence[str] | None = None  # None = every document in the workspace
+
+
+def allowed(chunk: Chunk, access: AccessFilter) -> bool:
+    if chunk.workspace_id != access.workspace_id:
+        return False
+    return access.doc_ids is None or chunk.doc_id in set(access.doc_ids)
 
 
 @dataclass(frozen=True)
@@ -74,11 +81,22 @@ class Embedder(Protocol):
 
 @runtime_checkable
 class Store(Protocol):
+    """Every search must apply ``access``; a chunk outside it must never be returned."""
+
     async def upsert(self, chunks: Sequence[Chunk], vectors: Sequence[Sequence[float]]) -> None: ...
 
-    async def search(
-        self, vector: Sequence[float], query: str, access: AccessFilter, top_k: int
+    async def search_vector(
+        self, vector: Sequence[float], access: AccessFilter, top_k: int
     ) -> list[Hit]: ...
+
+    async def search_text(self, query: str, access: AccessFilter, top_k: int) -> list[Hit]: ...
+
+
+@runtime_checkable
+class Cache(Protocol):
+    async def get(self, key: str) -> dict[str, Any] | None: ...
+
+    async def set(self, key: str, value: Mapping[str, Any], ttl: int) -> None: ...
 
 
 @runtime_checkable
@@ -113,6 +131,7 @@ class Checker(Protocol):
 
 # Contract name used in config (``kind``) -> Protocol.
 CONTRACTS: dict[str, type] = {
+    "cache": Cache,
     "llm": Llm,
     "embedder": Embedder,
     "store": Store,

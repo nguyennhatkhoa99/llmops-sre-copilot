@@ -26,6 +26,12 @@ render = [
     "weasyprint>=62",
     "python-pptx>=1.0",
 ]
+# Module B backends: Valkey cache, PostgreSQL + pgvector store.
+rag = [
+    "redis>=5.0",
+    "psycopg[binary]>=3.2",
+    "psycopg-pool>=3.2",
+]
 otel = [
     "opentelemetry-sdk>=1.28",
     "opentelemetry-exporter-otlp-proto-grpc>=1.28",

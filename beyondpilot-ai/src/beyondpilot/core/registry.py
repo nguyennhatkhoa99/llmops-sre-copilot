@@ -40,10 +40,28 @@ def resolve_class(kind: str, type_name: str) -> type:
     return cls
 
 
-def build_slot(name: str, cfg: SlotConfig, resilience: ResilienceConfig) -> Any:
+def slot_refs(cfg: SlotConfig) -> set[str]:
+    """Names of other slots this slot depends on, written as ``"@name"`` in params."""
+    return {
+        v[1:]
+        for v in cfg.params.values()
+        if isinstance(v, str) and v.startswith("@") and _NAME_RE.match(v[1:])
+    }
+
+
+def build_slot(
+    name: str,
+    cfg: SlotConfig,
+    resilience: ResilienceConfig,
+    built: dict[str, Any] | None = None,
+) -> Any:
     kind = cfg.kind or name
     cls = resolve_class(kind, cfg.type)
-    params = dict(cfg.params)
+    built = built or {}
+    params = {
+        k: built[v[1:]] if isinstance(v, str) and v[1:] in built and v.startswith("@") else v
+        for k, v in cfg.params.items()
+    }
     if getattr(cls, "accepts_resilience", False):
         params.setdefault("resilience", resilience)
     try:
@@ -65,8 +83,24 @@ class Registry:
     def __init__(self, settings: Settings) -> None:
         self._slots: dict[tuple[str, str], Any] = {}
         for module, mcfg in settings.modules.items():
-            for name, scfg in mcfg.slots.items():
-                self._slots[(module, name)] = build_slot(name, scfg, settings.resilience)
+            built: dict[str, Any] = {}
+            pending = dict(mcfg.slots)
+            for name, scfg in pending.items():
+                unknown = slot_refs(scfg) - set(mcfg.slots)
+                if unknown:
+                    raise AppError(
+                        ErrorCode.CONFIG_INVALID,
+                        f"{module}.{name} refers to unknown slot(s) {sorted(unknown)}",
+                    )
+            # Build in dependency order: a slot waits until the slots it refers to exist.
+            while pending:
+                ready = [n for n, c in pending.items() if slot_refs(c) <= built.keys()]
+                if not ready:
+                    raise AppError(ErrorCode.CONFIG_INVALID, f"{module}: circular slot references")
+                for name in ready:
+                    built[name] = build_slot(name, pending.pop(name), settings.resilience, built)
+            for name, instance in built.items():
+                self._slots[(module, name)] = instance
 
     def get(self, module: str, slot: str) -> Any:
         try:
@@ -78,3 +112,6 @@ class Registry:
 
     def slots(self) -> list[tuple[str, str]]:
         return sorted(self._slots)
+
+    def has(self, module: str, slot: str) -> bool:
+        return (module, slot) in self._slots

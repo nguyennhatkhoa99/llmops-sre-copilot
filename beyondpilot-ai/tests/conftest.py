@@ -11,7 +11,7 @@ def settings() -> Settings:
         {
             "api_keys": ["key-one", "key-two"],
             "resilience": {"attempts": 3, "base_delay": 0.1, "max_delay": 1, "timeout": 2},
-            "modules": {"rag": {"slots": {"llm": {"type": "echo", "params": {"prefix": "> "}}}}},
+            "modules": {"demo": {"slots": {"llm": {"type": "echo", "params": {"prefix": "> "}}}}},
         },
         env={},
     )

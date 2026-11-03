@@ -17,15 +17,23 @@ from beyondpilot.api.routers import internal, v1
 from beyondpilot.core.registry import Registry
 from beyondpilot.core.safety import SafetyEngine
 from beyondpilot.core.settings import Settings, load_settings
+from beyondpilot.modules.rag import pipeline as rag
+from beyondpilot.modules.rag.pipeline import RagPipeline
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, registry: Registry | None = None) -> FastAPI:
+    """``registry`` lets tests inject ready-made slots; production builds it from config."""
     settings = settings or load_settings()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        app.state.registry = Registry(settings)
+        app.state.registry = registry or Registry(settings)
         app.state.safety = SafetyEngine(block_on_pii=settings.safety.block_on_pii)
+        app.state.rag = (
+            RagPipeline.from_registry(app.state.registry, settings)
+            if rag.MODULE in settings.modules
+            else None
+        )
         yield
 
     app = FastAPI(title="BeyondPilot AI service", version=__version__, lifespan=lifespan)

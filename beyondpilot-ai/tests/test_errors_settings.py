@@ -85,5 +85,8 @@ def test_template_file_is_valid():
     from pathlib import Path
 
     template = Path(__file__).resolve().parent.parent / "config.yaml.template"
-    s = load_settings(template, env={"BEYONDPILOT_API_KEY": "k", "LITELLM_API_KEY": "l"})
+    s = load_settings(
+        template,
+        env={"BEYONDPILOT_API_KEY": "k", "LITELLM_API_KEY": "l", "PG_DSN": "postgresql://x"},
+    )
     assert s.modules["rag"].slots["llm"].type == "litellm"

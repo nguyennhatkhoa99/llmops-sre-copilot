@@ -31,6 +31,7 @@ class SlotConfig(BaseModel):
 
 class ModuleConfig(BaseModel):
     slots: dict[str, SlotConfig] = Field(default_factory=dict)
+    options: dict[str, Any] = Field(default_factory=dict)  # module-specific knobs, e.g. top_k
 
 
 class ResilienceConfig(BaseModel):

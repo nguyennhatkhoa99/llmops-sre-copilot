@@ -21,12 +21,44 @@ safety:
 
 # Each module is a chain of slots. type: is the file name under
 # beyondpilot/slots/<kind>/. kind defaults to the slot's key.
+# A param written as "@name" refers to another slot of the same module.
 modules:
-  rag:
+  rag:                       # module B, use case answer_question
+    options:
+      top_k: 5               # sources given to the model
+      candidates: 20         # hits fetched before reranking
+      rewrite: false         # slot 1: rewrite the question before searching
+      cache_ttl: 3600        # seconds
     slots:
-      llm:
+      cache:                 # slot 0
+        type: valkey
+        params:
+          url: ${VALKEY_URL:-redis://valkey:6379/0}
+      llm:                   # slots 1 and 6 (rewriter, synthesizer)
         type: litellm
         params:
           base_url: ${LITELLM_BASE_URL:-http://litellm:4000/v1}
           api_key: ${LITELLM_API_KEY}
           model: ${RAG_MODEL:-qwen3}
+      embedder:              # slot 2
+        type: litellm
+        params:
+          base_url: ${LITELLM_BASE_URL:-http://litellm:4000/v1}
+          api_key: ${LITELLM_API_KEY}
+          model: ${EMBED_MODEL:-bge-m3}
+      store:                 # slot 3
+        type: pgvector
+        params:
+          dsn: ${PG_DSN}
+          table: rag_chunks
+          dimensions: 1024
+      retriever:             # slot 4
+        type: hybrid
+        params:
+          embedder: "@embedder"
+          store: "@store"
+          alpha: 0.5
+      reranker:              # slot 5
+        type: tei
+        params:
+          base_url: ${RERANK_URL:-http://tei-rerank:80}
